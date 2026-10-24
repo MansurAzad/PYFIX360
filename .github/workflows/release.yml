@@ -92,7 +92,17 @@ jobs:
         run: |
           $path = "src/pyfix360/__init__.py"
           (Get-Content $path) -replace '^__version__ = ".*"$', ('__version__ = "' + $env:VERSION + '"') | Set-Content $path
+          # The pipeline reads the version from pyproject.toml, and the test suite
+          # checks that the two agree. Both are patched, or the build publishes a
+          # version the package does not claim to be.
+          $project = "pyproject.toml"
+          (Get-Content $project) -replace '^version = ".*"$', ('version = "' + $env:VERSION + '"') | Set-Content $project
           Select-String -Path $path -Pattern '^__version__'
+          Select-String -Path $project -Pattern '^version = '
+
+      - name: Run the lint gate
+        if: steps.existing.outputs.skip != 'true'
+        run: python -m ruff check src tests
 
       - name: Run the test suite
         if: steps.existing.outputs.skip != 'true'

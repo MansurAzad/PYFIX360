@@ -1,5 +1,6 @@
 """End-to-end repair workflow tests — the acceptance criteria in code."""
 
+import shutil
 from pathlib import Path
 
 from pyfix360.db.models import AuditEventRow, FindingRow, PatchRow, ScanRow, SnapshotRow
@@ -187,10 +188,13 @@ def test_scan_persists_tools_ran_and_skipped(session, sample_project):
 
     session.expire_all()
     row = session.get(ScanRow, scan.id)
-    # ruff is installed in CI/dev; other adapters may be skipped
-    assert "ruff" in (row.tools_ran or [])
+    # What ran is recorded, and what could not run is named: an adapter that is
+    # not installed has to disappear from neither list.
+    assert row.tools_ran
     assert row.tools_skipped, "expected at least one skipped tool to be recorded"
     assert any("bandit" in s or "pip-audit" in s for s in row.tools_skipped)
+    if shutil.which("ruff"):
+        assert "ruff" in (row.tools_ran or [])
 
 
 def test_untouched_project_scan_is_idempotent_import(session, sample_project):

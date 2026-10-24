@@ -431,12 +431,21 @@ def test_a_logon_task_is_created_for_the_launcher_not_a_long_inline_command(
     assert host_service.installed_mode() == TASK
 
 
-def test_paths_with_spaces_survive_the_command_line(use_probe, commands):
-    """This data directory lives under a user profile, so it always has a space."""
+def test_paths_with_spaces_survive_the_command_line(use_probe, commands, monkeypatch,
+                                                    tmp_path: Path):
+    """The launcher path is what the task engine has to read, so a space in it
+    must not split it into two words.
+
+    The space is put there on purpose: whether the machine running this test
+    happens to have one in its profile path is not something the test may rely
+    on — on a build agent there is none, and the quoting still has to be right.
+    """
     use_probe(admin=False)
+    launcher = tmp_path / "a dir with spaces" / service_host.LAUNCHER_NAME
+    monkeypatch.setattr(service_host, "launcher_path", lambda: launcher)
     host_service.install(mode=TASK, runner=commands)
     tr = _flag(commands.call_with("/create"), "/tr")
-    assert tr.startswith('"') or " " not in tr.split('"')[0]
+    assert f'"{launcher}"' in tr
 
 
 def test_a_task_that_survives_logoff_names_the_account_that_carries_it(
