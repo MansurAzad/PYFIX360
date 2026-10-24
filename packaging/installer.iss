@@ -31,6 +31,21 @@
   #define MyDistDir "..\dist\PYFIX360"
 #endif
 
+; The bundle has to exist before this script can be compiled, so the check
+; belongs here rather than at run time: the payload is embedded in the
+; installer, and Inno Setup already refuses a missing source file. The
+; message is the friendly version of that refusal.
+;   SourcePath is the directory holding this script.
+#ifndef MyDistDir
+  #if !FileExists(SourcePath + "\..\dist\PYFIX360\" + MyAppExeName)
+    #error The application bundle was not found. Run packaging\build.ps1 first.
+  #endif
+#else
+  #if !FileExists(MyDistDir + "\" + MyAppExeName)
+    #error The application bundle was not found. Run packaging\build.ps1 first.
+  #endif
+#endif
+
 [Setup]
 AppId={{8E31B2A4-7C41-4C0E-9F2B-5D6A9E13C7B0}
 AppName={#MyAppName}
@@ -41,7 +56,10 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+; No override: the install is always per-user. With "dialog" allowed, a silent
+; run by an administrator account installs into Program Files instead — a
+; machine-wide change this tool has no business making.
+PrivilegesRequiredOverridesAllowed=
 OutputDir=Output
 OutputBaseFilename=Setup_{#MyAppFileBase}_v{#MyAppVersion}
 Compression=lzma2/max
@@ -108,7 +126,9 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     DataDir := ExpandConstant('{localappdata}\PYFIX360');
-    if DirExists(DataDir) then
+    // A silent uninstall keeps the data: nobody was there to answer, and
+    // deleting a history nobody asked to delete is the worse mistake.
+    if (not UninstallSilent) and DirExists(DataDir) then
     begin
       Response := MsgBox(
         'Keep your PYFIX 360 data?' + #13#10 + #13#10 +
@@ -121,18 +141,5 @@ begin
         DelTree(DataDir, True, True, True);
       end;
     end;
-  end;
-end;
-
-// Fail early with a clear message if the bundle was not built first.
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-  if not DirExists(ExpandConstant('{#MyDistDir}')) then
-  begin
-    MsgBox('Build output not found at:' + #13#10 + '{#MyDistDir}' + #13#10 + #13#10 +
-           'Run packaging\build.ps1 first, then compile this installer.',
-           mbError, MB_OK);
-    Result := False;
   end;
 end;

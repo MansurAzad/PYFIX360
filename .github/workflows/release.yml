@@ -69,7 +69,13 @@ jobs:
           # Publishing a release creates its tag, and the tag push starts this
           # workflow again. That second run has nothing new to build, so it
           # stops here instead of burning another build.
-          gh release view $env:TAG --json tagName --jq .tagName 2>$null
+          #
+          # PowerShell 7 turns a native command that fails into a terminating
+          # error, and "this release does not exist" is exactly the answer we
+          # are looking for, so the error handling has to be turned off first.
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          gh release view $env:TAG --json tagName --jq .tagName | Out-Null
           if ($LASTEXITCODE -eq 0) {
             "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             Write-Host "Release $env:TAG already exists; nothing to build."
