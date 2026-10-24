@@ -70,9 +70,11 @@ jobs:
           # workflow again. That second run has nothing new to build, so it
           # stops here instead of burning another build.
           #
-          # PowerShell 7 turns a native command that fails into a terminating
-          # error, and "this release does not exist" is exactly the answer we
-          # are looking for, so the error handling has to be turned off first.
+          # "This release does not exist" is the answer we are looking for,
+          # and it arrives as a failing exit code. PowerShell would turn that
+          # into a terminating error, and the runner ends every step with the
+          # last exit code — so the error handling has to be turned off and
+          # the step has to end with a clean exit of its own.
           $ErrorActionPreference = 'Continue'
           $PSNativeCommandUseErrorActionPreference = $false
           gh release view $env:TAG --json tagName --jq .tagName | Out-Null
@@ -82,6 +84,7 @@ jobs:
           } else {
             "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
+          exit 0
 
       - name: Put the version into the application
         if: steps.existing.outputs.skip != 'true'
@@ -155,6 +158,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
           $tag = $env:TAG
           $notes = @"
           ## PYFIX 360 $env:VERSION
@@ -172,6 +177,7 @@ jobs:
             gh release upload $tag --clobber "artifacts\Setup_PYFIX360_v$env:VERSION.exe" "artifacts\PYFIX360-v$env:VERSION-portable.zip" "artifacts\checksums.txt" "artifacts\latest.json"
             if ($LASTEXITCODE -ne 0) { throw "could not publish the release" }
           }
+          exit 0
 
       - name: Summarise
         if: steps.existing.outputs.skip != 'true'
