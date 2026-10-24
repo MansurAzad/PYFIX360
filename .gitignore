@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.venv/
+venv/
+env/
+
+# Testing / linting caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# PYFIX 360 runtime data (database, snapshots, workspaces, reports, logs)
+# NOTE: this is per-user data. If you keep it inside the repo, it stays out of git.
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Desktop / editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build output that must never be committed
+packaging/Output/
+packaging/build/
+artifacts/
+vibe_images/

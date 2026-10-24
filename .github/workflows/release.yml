@@ -1,0 +1,146 @@
+name: release
+
+# Every push to main produces a new version and a new installer. A push of a
+# "v*" tag publishes that exact version instead. The workflow can also be run
+# by hand from the Actions tab.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+# One release at a time: two builds racing for the same tag would overwrite
+# each other's assets.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows build and release
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[ui,credentials]"
+          python -m pip install "pyinstaller>=6.6" "pillow>=10"
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          $base = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"$').Matches[0].Groups[1].Value
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart('v')
+          } else {
+            # Every push gets its own version: the base version plus the run
+            # number, so the ordering of the releases is the ordering of the
+            # commits that produced them.
+            $version = "$base.${{ github.run_number }}"
+          }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Building version $version"
+
+      - name: Put the version into the application
+        shell: pwsh
+        run: |
+          $path = "src/pyfix360/__init__.py"
+          (Get-Content $path) -replace '^__version__ = ".*"$', ('__version__ = "' + $env:VERSION + '"') | Set-Content $path
+          Select-String -Path $path -Pattern '^__version__'
+
+      - name: Run the test suite
+        run: python -m pytest tests -q
+
+      - name: Build the application icon
+        run: python packaging/make_icon.py
+
+      - name: Build the application bundle
+        run: python -m PyInstaller packaging/pyfix360.spec --noconfirm --clean
+
+      - name: Smoke-test the frozen command line
+        shell: pwsh
+        run: |
+          $cli = "dist\PYFIX360\PYFIX360-cli.exe"
+          if (-not (Test-Path $cli)) { throw "the bundle has no CLI executable" }
+          & $cli --version
+          if ($LASTEXITCODE -ne 0) { throw "the frozen CLI did not start" }
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile the installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup was not installed" }
+          & $iscc "/DMyDistDir=$((Resolve-Path 'dist\PYFIX360').Path)" "/DMyAppVersion=$env:VERSION" "packaging\installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+
+      - name: Collect the artefacts
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "packaging\Output\Setup_PYFIX360_v$env:VERSION.exe"
+          if (-not $installer) { throw "the installer was not produced" }
+          New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+          Copy-Item $installer.FullName "artifacts\$($installer.Name)"
+          # the portable folder, for people who do not want an installer
+          Compress-Archive -Path "dist\PYFIX360\*" -DestinationPath "artifacts\PYFIX360-v$env:VERSION-portable.zip"
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Out-File -FilePath "artifacts\checksums.txt" -Encoding ascii
+          $size = (Get-Item $installer.FullName).Length
+          $manifest = @{
+            version   = $env:VERSION
+            installer = $installer.Name
+            url       = "https://github.com/${{ github.repository }}/releases/download/$env:TAG/$($installer.Name)"
+            sha256    = $hash
+            size      = $size
+          }
+          $manifest | ConvertTo-Json | Out-File -FilePath "artifacts\latest.json" -Encoding utf8
+          Get-ChildItem "artifacts" | Format-Table Name, Length
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:TAG
+          $notes = @"
+          ## PYFIX 360 $env:VERSION
+
+          Windows build of commit `${{ github.sha }}`.
+
+          * `Setup_PYFIX360_v$env:VERSION.exe` — the installer (per-user, no admin rights needed)
+          * `PYFIX360-v$env:VERSION-portable.zip` — the application folder, no install
+          * `checksums.txt` — SHA-256 of the installer
+          * `latest.json` — the manifest the in-app updater reads
+          "@@
+          gh release create $tag --title "PYFIX 360 $env:VERSION" --notes $notes "artifacts\Setup_PYFIX360_v$env:VERSION.exe" "artifacts\PYFIX360-v$env:VERSION-portable.zip" "artifacts\checksums.txt" "artifacts\latest.json"
+          if ($LASTEXITCODE -ne 0) {
+            # the tag already has a release: replace its assets instead
+            gh release upload $tag --clobber "artifacts\Setup_PYFIX360_v$env:VERSION.exe" "artifacts\PYFIX360-v$env:VERSION-portable.zip" "artifacts\checksums.txt" "artifacts\latest.json"
+            if ($LASTEXITCODE -ne 0) { throw "could not publish the release" }
+          }
+
+      - name: Summarise
+        shell: pwsh
+        run: |
+          Write-Host "Release $env:TAG is published."
+          Write-Host "The updater reads artifacts/latest.json from the newest release."

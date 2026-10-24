@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyfix360"
+version = "0.1.0"
+description = "Offline-first AI-powered code inspection, audit, repair and project completion platform."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "PYFIX 360 Team" }]
+keywords = ["static-analysis", "audit", "repair", "code-quality", "security"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "pydantic>=2.7",
+    "SQLAlchemy>=2.0.30",
+    "alembic>=1.13",
+]
+
+[project.optional-dependencies]
+ui = ["PySide6>=6.7"]
+credentials = ["keyring>=25"]
+automation = ["playwright>=1.47"]
+# Registering the background host with the service control manager. Without it,
+# `pyfix360 service install --mode task` still works; only --mode service needs this.
+service = ["pywin32>=306; platform_system == 'Windows'"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+]
+
+[project.scripts]
+pyfix360 = "pyfix360.cli:main"
+pyfix360-gui = "pyfix360.app:main"
+
+[project.gui-scripts]
+pyfix360-desktop = "pyfix360.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pyfix360 = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
+# E501: line length is handled by the formatter.
+# UP042: str+Enum mixins are intentional so settings/findings serialise to JSON
+#        as plain strings without a custom encoder.
+ignore = ["E501", "UP042"]
