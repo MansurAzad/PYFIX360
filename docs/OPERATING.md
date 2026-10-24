@@ -347,7 +347,7 @@ into twelve tabs. Nothing is reachable only by editing a file.
 | Tools & Commands | Test command override; custom tool paths. |
 | Notifications | Completion toasts, log level and retention. |
 | Background | Tray icon, close-to-tray, the background host's interval and what is installed right now. |
-| Data & Backup | Export/import the settings file, inspect the data directory, reset. |
+| Data & Backup | Export/import the settings file, inspect the data directory, reset, and the application updates. |
 
 From the CLI:
 
@@ -427,6 +427,41 @@ Five themes ship — Studio Dark, Midnight Indigo, Deep Forest, Daylight, High C
 plus an accent override. Contrast is **checkable**: body text is ≥ 7:1 (WCAG AAA),
 muted text ≥ 4.5:1 (AA), and button labels are derived from the accent's own luminance
 so no accent — including one you type in — can make a label unreadable.
+
+### Application updates
+
+The **Data & Backup** tab has an *Application updates* group:
+
+| Control | What it does |
+|---|---|
+| *Check for updates* | Asks the repository that publishes the releases whether a newer version exists. |
+| *Install update* | Downloads it, verifies the checksum and installs it. |
+| *install a new version as soon as it is found* | Only takes effect when the access policy allows an automatic check. |
+
+From the terminal:
+
+```bash
+pyfix360 update --check     # report what is available, change nothing
+pyfix360 update --yes       # download, verify and install
+```
+
+**What the check does and does not do.** It talks to one host — the GitHub
+repository that publishes the releases — and sends nothing about your machine.
+The download is verified against the SHA-256 the release published; a file that
+does not match is **deleted, not installed**.
+
+**Whether it happens on its own** is decided by the access matrix, not by the
+app:
+
+| `access_check_for_updates` | Effect |
+|---|---|
+| `ask` (the default) | Nothing leaves the machine until you press *Check for updates*. |
+| `full` | The application checks at startup, and installs automatically if the checkbox above is on. |
+| `blocked` | The application never contacts GitHub at all. |
+
+Installing means the installer replaces the installed folder and the shortcuts.
+The Windows Restart Manager closes the running application first and starts the
+new version again afterwards — so the application restarts itself.
 
 ---
 

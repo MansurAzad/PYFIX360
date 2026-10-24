@@ -1090,7 +1090,10 @@ class SettingsScreen(QWidget):
             "install a new version as soon as it is found")
         self.update_auto.setToolTip(
             "The update is downloaded and the installer replaces the installed "
-            "copy. The application restarts when it is done.")
+            "copy. The application restarts when it is done. This only takes "
+            "effect when the access policy for checking GitHub is set to "
+            "Full — otherwise the check only happens when you press the "
+            "button below.")
         ulay.addWidget(self.update_auto)
         urow = QHBoxLayout()
         self.check_update_button = make_button("Check for updates",
@@ -1106,7 +1109,9 @@ class SettingsScreen(QWidget):
         self.update_note = QLabel(
             "Checking talks to the GitHub repository that publishes the "
             "releases and sends nothing about this machine. The download is "
-            "verified against the checksum the release published.")
+            "verified against the checksum the release published. The access "
+            "policy below decides whether the application may check on its "
+            "own.")
         self.update_note.setWordWrap(True)
         self.update_note.setObjectName("muted")
         ulay.addWidget(self.update_note)

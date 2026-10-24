@@ -800,7 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--check", dest="check_only", action="store_true",
                     help="only report what is available")
     sp.add_argument("--yes", action="store_true",
-                    help="install without asking; this flag is the confirmation")
+                    help="install without asking first")
     sp.add_argument("--repo", default=None,
                     help="the repository to check (default: the one that "
                          "published this build)")

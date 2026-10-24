@@ -6,7 +6,7 @@
 | [`OPERATING.md`](OPERATING.md) | Day-to-day usage: import, scan, findings, repair, rollback, testing, features, gates, reports, AI providers and models, platform playbooks and operating an app builder, autopilot and the Enter gestures, the background host and headless service modes, settings, troubleshooting. |
 | [`DATA_MODEL.md`](DATA_MODEL.md) | Persisted schema (20 tables), entity map, finding/repair lifecycle, stable keys, incremental scanning, quality gates, audit trail and AI request metadata. |
 | [`AI.md`](AI.md) | Providers, the free/low-cost model catalogue, live discovery, and the exact privacy guarantees. |
-| [`PACKAGING.md`](PACKAGING.md) | Building the `.exe`, the icon, and the installer; what the bundle contains and what it deliberately omits. |
+| [`PACKAGING.md`](PACKAGING.md) | Building the `.exe`, the icon, and the installer; what the bundle contains and what it deliberately omits; the release pipeline and the auto-update. |
 
 ## Reading order
 

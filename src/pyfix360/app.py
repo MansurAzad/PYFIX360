@@ -103,9 +103,13 @@ def _start_update_check(ctx, tray) -> None:
 
         def installed(_path) -> None:
             ctx.status("The update is installing; the application will restart.")
+            from PySide6.QtCore import QTimer
             from PySide6.QtWidgets import QApplication
 
-            QApplication.instance().quit()
+            # The installer finds the running application through the Windows
+            # Restart Manager, closes it and starts it again afterwards. It has
+            # to see the running copy, so the quit is delayed a little.
+            QTimer.singleShot(2500, QApplication.instance().quit)
 
         def failed(message: str) -> None:
             logger.warning("the automatic update failed: %s", message)

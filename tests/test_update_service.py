@@ -316,6 +316,21 @@ def test_the_cli_refuses_when_the_policy_blocks_it(monkeypatch, capsys):
     assert "BLOCKED" in capsys.readouterr().err
 
 
+def test_the_cli_confirms_the_check_because_the_user_asked(monkeypatch, capsys):
+    """Typing the command is the confirmation; ASK must not block it."""
+    from pyfix360 import cli
+
+    seen = {}
+
+    def check(*args, **kwargs):
+        seen["confirmed"] = kwargs.get("confirmed")
+        return None
+
+    monkeypatch.setattr(update_service, "check", check)
+    assert cli.main(["update", "--check"]) == 0
+    assert seen["confirmed"] is True
+
+
 # ---------------------------------------------------------------------------
 # the version the build publishes
 # ---------------------------------------------------------------------------
