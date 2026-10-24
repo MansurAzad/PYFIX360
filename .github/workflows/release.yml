@@ -3,13 +3,15 @@ name: release
 # Every push to main produces a new version and a new installer. A push of a
 # "v*" tag publishes that exact version instead. The workflow can also be run
 # by hand from the Actions tab.
+#
+# There is deliberately no "release: published" trigger: the release this
+# workflow creates would trigger it again, and again, forever. The release is
+# the *output* of the build, not its input.
 on:
   push:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
-  release:
-    types: [published]
 
 permissions:
   contents: write
@@ -58,7 +60,25 @@ jobs:
           "TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Building version $version"
 
+      - name: Check whether this version was already published
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Publishing a release creates its tag, and the tag push starts this
+          # workflow again. That second run has nothing new to build, so it
+          # stops here instead of burning another build.
+          gh release view $env:TAG --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            "skip=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Release $env:TAG already exists; nothing to build."
+          } else {
+            "skip=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Put the version into the application
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: |
           $path = "src/pyfix360/__init__.py"
@@ -66,15 +86,19 @@ jobs:
           Select-String -Path $path -Pattern '^__version__'
 
       - name: Run the test suite
+        if: steps.existing.outputs.skip != 'true'
         run: python -m pytest tests -q
 
       - name: Build the application icon
+        if: steps.existing.outputs.skip != 'true'
         run: python packaging/make_icon.py
 
       - name: Build the application bundle
+        if: steps.existing.outputs.skip != 'true'
         run: python -m PyInstaller packaging/pyfix360.spec --noconfirm --clean
 
       - name: Smoke-test the frozen command line
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: |
           $cli = "dist\PYFIX360\PYFIX360-cli.exe"
@@ -83,9 +107,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "the frozen CLI did not start" }
 
       - name: Install Inno Setup
+        if: steps.existing.outputs.skip != 'true'
         run: choco install innosetup --no-progress -y
 
       - name: Compile the installer
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
@@ -95,6 +121,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
 
       - name: Collect the artefacts
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: |
           $installer = Get-ChildItem "packaging\Output\Setup_PYFIX360_v$env:VERSION.exe"
@@ -117,6 +144,7 @@ jobs:
           Get-ChildItem "artifacts" | Format-Table Name, Length
 
       - name: Publish the release
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -140,6 +168,7 @@ jobs:
           }
 
       - name: Summarise
+        if: steps.existing.outputs.skip != 'true'
         shell: pwsh
         run: |
           Write-Host "Release $env:TAG is published."
