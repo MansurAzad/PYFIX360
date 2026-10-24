@@ -86,3 +86,18 @@ def qapp():
     widgets = pytest.importorskip("PySide6.QtWidgets")
     app = widgets.QApplication.instance() or widgets.QApplication([])
     yield app
+    # Every widget has to be gone before the application is. Qt tears the
+    # application down first, and a widget destroyed after that takes the
+    # process down with it — a crash at the very end of the run, with every
+    # test already green and nothing to point at.
+    _destroy_widgets(app)
+
+
+def _destroy_widgets(app) -> None:
+    from PySide6.QtCore import QEvent
+
+    for widget in app.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
