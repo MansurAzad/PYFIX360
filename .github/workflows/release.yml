@@ -180,7 +180,7 @@ jobs:
           * `PYFIX360-v$env:VERSION-portable.zip` — the application folder, no install
           * `checksums.txt` — SHA-256 of the installer
           * `latest.json` — the manifest the in-app updater reads
-          "@@
+          "@
           gh release create $tag --title "PYFIX 360 $env:VERSION" --notes $notes "artifacts\Setup_PYFIX360_v$env:VERSION.exe" "artifacts\PYFIX360-v$env:VERSION-portable.zip" "artifacts\checksums.txt" "artifacts\latest.json"
           if ($LASTEXITCODE -ne 0) {
             # the tag already has a release: replace its assets instead
